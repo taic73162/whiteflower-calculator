@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>白花油活動（現金價）計算</title>
+  <style>
+    body { font-family: sans-serif; padding: 10px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f4f4f4; }
+    input[type="number"] { width: 80px; padding: 4px; font-size: 1em; }
+    .top-controls { font-weight: bold; font-size: 1em; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
+    button { padding: 8px 12px; font-size: 1em; cursor: pointer; width: fit-content; }
+
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+
+    @media (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      thead tr {
+        display: none;
+      }
+      tr {
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+        padding: 10px;
+      }
+      td {
+        text-align: right;
+        position: relative;
+        padding-left: 50%;
+      }
+      td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 10px;
+        width: 45%;
+        white-space: nowrap;
+        text-align: left;
+        font-weight: bold;
+      }
+    }
+  
+    @media (max-width: 600px) {
+      .top-controls {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: #fff;
+        border-top: 1px solid #ccc;
+        padding: 10px;
+        box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+        z-index: 1000;
+      }
+      body {
+        padding-bottom: 160px; /* 避免內容被底部遮住 */
+      }
+    }
+</style>
+</head>
+<body>
+  <h2>白花油活動（現金價）計算</h2>
+  <div class="top-controls">
+    <div>總計金額：<span id="grand-total">0</span> 元</div>
+    <div>
+      之前已出金額：<input type="number" id="previous-total" value="0" min="0" onchange="updateTotals()"> 元
+    </div>
+    <div>加總金額：<span id="final-total">0</span> 元</div>
+    <button onclick="clearQuantities()">清除數量</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>品名</th>
+        <th>現金價</th>
+        <th>數量</th>
+        <th>小計</th>
+      </tr>
+    </thead>
+    <tbody id="product-table">
+      <tr>
+        <td data-label="品名">白花油 #1</td><td data-label="現金價">240</td>
+        <td data-label="數量"><input type="number" min="0" value="0" data-price="240"></td>
+        <td class="subtotal" data-label="小計">0</td>
+      </tr>
+      <tr>
+        <td data-label="品名">白花油 #2</td><td data-label="現金價">154</td>
+        <td data-label="數量"><input type="number" min="0" value="0" data-price="154"></td>
+        <td class="subtotal" data-label="小計">0</td>
+      </tr>
+      <tr>
+        <td data-label="品名">白花油 #3</td><td data-label="現金價">89</td>
+        <td data-label="數量"><input type="number" min="0" value="0" data-price="89"></td>
+        <td class="subtotal" data-label="小計">0</td>
+      </tr>
+      <tr>
+        <td data-label="品名">白花油 XL</td><td data-label="現金價">432</td>
+        <td data-label="數量"><input type="number" min="0" value="0" data-price="432"></td>
+        <td class="subtotal" data-label="小計">0</td>
+      </tr>
+      <tr>
+        <td data-label="品名">白花油甦醒凝露-佛手柑</td><td data-label="現金價">145</td>
+        <td data-label="數量"><input type="number" min="0" value="0" data-price="145"></td>
+        <td class="subtotal" data-label="小計">0</td>
+      </tr>
+      <tr>
+        <td data-label="品名">白花膏15g</td><td data-label="現金價">70</td>
+        <td data-label="數量"><input type="number" min="0" value="0" data-price="100"></td>
+        <td class="subtotal" data-label="小計">0</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <script>
+    const inputs = document.querySelectorAll('input[type="number"]');
+    const previousTotalInput = document.getElementById('previous-total');
+
+    function updateTotals() {
+      let grandTotal = 0;
+      inputs.forEach(input => {
+        if (input.id !== "previous-total") {
+          const price = parseFloat(input.dataset.price);
+          const quantity = parseInt(input.value) || 0;
+          const subtotal = price * quantity;
+          input.closest('tr').querySelector('.subtotal').textContent = subtotal;
+          grandTotal += subtotal;
+        }
+      });
+      document.getElementById('grand-total').textContent = grandTotal;
+      const previousTotal = parseFloat(previousTotalInput.value) || 0;
+      document.getElementById('final-total').textContent = grandTotal + previousTotal;
+    }
+
+    function clearQuantities() {
+      inputs.forEach(input => {
+        if (input.id !== "previous-total") input.value = 0;
+      });
+      updateTotals();
+    }
+
+    inputs.forEach(input => {
+      input.addEventListener('input', updateTotals);
+    });
+  </script>
+</body>
+</html>
