@@ -9,8 +9,8 @@
     table { border-collapse: collapse; width: 100%; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
     th { background-color: #f4f4f4; }
-    input[type="number"] { width: 60px; padding: 4px; font-size: 1em; }
-    .top-controls { font-weight: bold; font-size: 1.2em; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
+    input[type="number"] { width: 80px; padding: 4px; font-size: 1em; }
+    .top-controls { font-weight: bold; font-size: 1em; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
     button { padding: 8px 12px; font-size: 1em; cursor: pointer; width: fit-content; }
 
     input[type=number]::-webkit-inner-spin-button, 
@@ -49,50 +49,56 @@
         font-weight: bold;
       }
     }
-
-    .hide { display: none; }
   </style>
 </head>
 <body>
   <h2>白花油活動（現金價）計算</h2>
   <div class="top-controls">
     <div>總計金額：<span id="grand-total">0</span> 元</div>
+    <div>
+      之前已出金額：<input type="number" id="previous-total" value="0" min="0" onchange="updateTotals()"> 元
+    </div>
+    <div>加總金額：<span id="final-total">0</span> 元</div>
     <button onclick="clearQuantities()">清除數量</button>
   </div>
   <table>
     <thead>
       <tr>
         <th>品名</th>
-        <th class="hide">單位</th>
-        <th class="hide">現金價</th>
+        <th>現金價</th>
         <th>數量</th>
         <th>小計</th>
       </tr>
     </thead>
     <tbody id="product-table">
       <tr>
-        <td data-label="品名">白花油 #1</td><td class="hide" data-label="單位">支</td><td class="hide" data-label="現金價">240</td>
+        <td data-label="品名">白花油 #1</td><td data-label="現金價">240</td>
         <td data-label="數量"><input type="number" min="0" value="0" data-price="240"></td>
         <td class="subtotal" data-label="小計">0</td>
       </tr>
       <tr>
-        <td data-label="品名">白花油 #2</td><td class="hide" data-label="單位">支</td><td class="hide" data-label="現金價">154</td>
+        <td data-label="品名">白花油 #2</td><td data-label="現金價">154</td>
         <td data-label="數量"><input type="number" min="0" value="0" data-price="154"></td>
         <td class="subtotal" data-label="小計">0</td>
       </tr>
       <tr>
-        <td data-label="品名">白花油 #3</td><td class="hide" data-label="單位">支</td><td class="hide" data-label="現金價">89</td>
+        <td data-label="品名">白花油 #3</td><td data-label="現金價">89</td>
         <td data-label="數量"><input type="number" min="0" value="0" data-price="89"></td>
         <td class="subtotal" data-label="小計">0</td>
       </tr>
       <tr>
-        <td data-label="品名">白花油 XL</td><td class="hide" data-label="單位">支</td><td class="hide" data-label="現金價">432</td>
+        <td data-label="品名">白花油 XL</td><td data-label="現金價">432</td>
         <td data-label="數量"><input type="number" min="0" value="0" data-price="432"></td>
         <td class="subtotal" data-label="小計">0</td>
       </tr>
       <tr>
-        <td data-label="品名">白花油甦醒凝露-佛手柑</td><td class="hide" data-label="單位">支</td><td class="hide" data-label="現金價">145</td>
+        <td data-label="品名">白花油甦醒凝露-佛手柑</td><td data-label="現金價">145</td>
         <td data-label="數量"><input type="number" min="0" value="0" data-price="145"></td>
+        <td class="subtotal" data-label="小計">0</td>
+      </tr>
+      <tr>
+        <td data-label="品名">白花膏</td><td data-label="現金價">100</td>
+        <td data-label="數量"><input type="number" min="0" value="0" data-price="100"></td>
         <td class="subtotal" data-label="小計">0</td>
       </tr>
     </tbody>
@@ -100,21 +106,28 @@
 
   <script>
     const inputs = document.querySelectorAll('input[type="number"]');
+    const previousTotalInput = document.getElementById('previous-total');
 
     function updateTotals() {
       let grandTotal = 0;
       inputs.forEach(input => {
-        const price = parseFloat(input.dataset.price);
-        const quantity = parseInt(input.value) || 0;
-        const subtotal = price * quantity;
-        input.closest('tr').querySelector('.subtotal').textContent = subtotal;
-        grandTotal += subtotal;
+        if (input.id !== "previous-total") {
+          const price = parseFloat(input.dataset.price);
+          const quantity = parseInt(input.value) || 0;
+          const subtotal = price * quantity;
+          input.closest('tr').querySelector('.subtotal').textContent = subtotal;
+          grandTotal += subtotal;
+        }
       });
       document.getElementById('grand-total').textContent = grandTotal;
+      const previousTotal = parseFloat(previousTotalInput.value) || 0;
+      document.getElementById('final-total').textContent = grandTotal + previousTotal;
     }
 
     function clearQuantities() {
-      inputs.forEach(input => input.value = 0);
+      inputs.forEach(input => {
+        if (input.id !== "previous-total") input.value = 0;
+      });
       updateTotals();
     }
 
