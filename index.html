@@ -49,7 +49,6 @@
     .sticky-actions { display:flex; gap:8px; flex-wrap: wrap; }
     .gift-em { color: var(--gift); font-weight: 800; }
     
-    
     @media (max-width: 600px) {
       .order-card { width: 100%; padding: 12px; }
       body { padding-bottom: 190px; }
@@ -72,6 +71,24 @@
     #mobile-sheet img { width: 100%; height: auto; object-fit: contain; display:block; }
     #mobile-sheet .handle { width:48px; height:5px; border-radius: 5px; background:#ddd; margin: 6px auto 10px; }
 
+    /* === 新增：分享彈窗元件 === */
+    .share-modal {
+      display: none; position: fixed; z-index: 10001; left: 0; top: 0; width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center;
+    }
+    .share-modal-content {
+      background: #fff; padding: 20px; border-radius: 12px; max-width: 90%; max-height: 85vh;
+      display: flex; flex-direction: column; align-items: center; gap: 12px; overflow: auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .share-modal-content h3 { margin: 0; font-size: 18px; color: #333; }
+    .share-modal-content img {
+      max-width: 100%; max-height: 45vh; border: 1px solid #ddd; border-radius: 8px; object-fit: contain;
+    }
+    .share-modal-actions {
+      display: flex; gap: 12px; width: 100%; justify-content: center; margin-top: 10px;
+    }
+
     @media (max-width: 768px) {
       #product-preview { display: none !important; }
       #mobile-sheet {
@@ -79,24 +96,14 @@
         padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
       }
       #mobile-sheet img {
-        display: block;
-        width: auto;
-        height: auto;
-        max-width: min(92vw, 520px);
-        max-height: 60vh;
-        object-fit: contain;
-        margin: 6px auto 8px;
+        display: block; width: auto; height: auto; max-width: min(92vw, 520px);
+        max-height: 60vh; object-fit: contain; margin: 6px auto 8px;
       }
     }
 
-    /* 在產品名稱旁放一個縮圖圖示（有圖才顯示） */
     .thumb-dot {
-      display: none;
-      margin-left: 6px;
-      font-size: 12px;
-      color: #888;
-      cursor: zoom-in;
-      user-select: none;
+      display: none; margin-left: 6px; font-size: 12px; color: #888;
+      cursor: zoom-in; user-select: none;
     }
     tr.has-image .thumb-dot { display: inline; }
     td.name-cell { text-align: left; }
@@ -180,14 +187,26 @@
       <button id="clear-btn">重新輸入</button>
       <button id="share-all-btn" class="primary">生成訂單並分享</button>
       <a id="share-line-text" target="_blank" rel="noopener"><button>用 LINE 傳文字</button></a>
-</div>
+    </div>
   </div>
+
   <div id="product-preview" aria-hidden="true">
     <img id="product-preview-img" alt="商品預覽" loading="lazy" />
   </div>
   <div id="mobile-sheet" aria-hidden="true">
     <div class="handle"></div>
     <img id="mobile-sheet-img" alt="商品預覽" loading="lazy" />
+  </div>
+
+  <div id="share-modal" class="share-modal" aria-hidden="true">
+    <div class="share-modal-content">
+      <h3>訂單圖片已生成</h3>
+      <img id="share-modal-img" src="" alt="訂單預覽">
+      <div class="share-modal-actions">
+        <button id="modal-cancel-btn">取消</button>
+        <button id="modal-share-btn" class="primary">分享至 LINE</button>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -237,7 +256,6 @@
         }
       }catch(e){ /* try next */ }
     }
-    console.warn('productImages 對照表載入失敗，名稱對照將無法顯示圖片');
   }
 
   function getImgSrcFromName(name){
@@ -413,88 +431,72 @@
   custInput.addEventListener('input', updateTotals);
   noteInput.addEventListener('input', updateTotals);
 
-  // === 核心分享功能改寫 ===
-  async function shareAll() {
-    updateTotals(); // 先同步更新 UI
+  // === 兩步式分享邏輯 ===
+  let pendingShareFile = null;
 
+  async function prepareOrderAndShowModal() {
+    updateTotals(); 
     const btn = document.getElementById('share-all-btn');
     const originalText = btn.textContent;
     btn.textContent = '產生中...';
     btn.disabled = true;
 
-    let blob = null;
-
     try {
-      // 1. 立即呼叫 html2canvas (移除原本的 setTimeout，避免流失使用者的點擊授權)
+      // 1. 產生 Canvas 和圖片
       const canvas = await html2canvas(document.getElementById('order-card'), {
-        scale: 2,
-        backgroundColor: '#fff',
-        useCORS: true
+        scale: 2, backgroundColor: '#fff', useCORS: true
       });
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
       
-      blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
-      const file = new File([blob], 'order.png', { type: 'image/png' });
+      // 2. 儲存檔案以供稍後分享
+      pendingShareFile = new File([blob], 'order.png', { type: 'image/png' });
 
-      // 2. 判斷是否支援原生的 Web Share API 檔案分享
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          // 呼叫原生分享
-          // 注意：如果同時放 text 與 files，iOS LINE 有時會誤判只傳送文字，因此僅保留 title 和 files
-          await navigator.share({
-            files: [file],
-            title: '訂單確認單'
-          });
-          return; // 分享成功，結束執行
-        } catch (shareError) {
-          // 如果是使用者自己滑掉/取消分享 (AbortError)，不要做任何報錯，直接結束
-          if (shareError.name === 'AbortError') return;
-          throw shareError; // 其他預期外錯誤，拋出給下方 Catch 執行備用方案
-        }
-      } else {
-        throw new Error('此裝置/瀏覽器不支援原生分享');
-      }
+      // 3. 顯示預覽與分享彈窗
+      const imgUrl = URL.createObjectURL(blob);
+      document.getElementById('share-modal-img').src = imgUrl;
+      document.getElementById('share-modal').style.display = 'flex';
 
     } catch (err) {
-      console.error('分享失敗，進入備用下載：', err);
-      // 3. 備用方案：自動下載或開新分頁（適用於不支援的瀏覽器）
-      if (blob) {
-        if (/Android/i.test(navigator.userAgent || '')) {
-          const url = URL.createObjectURL(blob);
-          window.open(url, '_blank');
-          alert('無法喚起分享選單。已開啟新分頁，請長按圖片「儲存」後手動分享。');
-        } else {
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = 'order.png';
-          document.body.appendChild(a); 
-          a.click(); 
-          document.body.removeChild(a);
-          alert('無法喚起分享選單。已為您下載圖檔，可手動至相簿/檔案中分享。');
-        }
-      }
+      console.error('產生圖片失敗：', err);
+      alert('產生圖片失敗，請重試。');
     } finally {
-      // 4. 恢復按鈕狀態
       btn.textContent = originalText;
       btn.disabled = false;
     }
   }
 
-  clearBtn.addEventListener('click', ()=>{
-    document.querySelectorAll('input[type="number"][data-price]').forEach(i=>i.value='0');
-    prevInput.value='0'; custInput.value=''; noteInput.value='';
-    updateTotals();
+  // 彈窗的取消按鈕
+  document.getElementById('modal-cancel-btn').addEventListener('click', () => {
+    document.getElementById('share-modal').style.display = 'none';
   });
-  
-  shareAllBtn.addEventListener('click', shareAll);
 
-  // 啟動
-  (async function init(){
-    await loadMap();
-    markRowsHasImage();
-    bindPreviewEvents();
-    updateTotals();
-  })();
-</script>
+  // 彈窗的分享按鈕 (此點擊事件會瞬間觸發分享，滿足 iOS 安全要求)
+  document.getElementById('modal-share-btn').addEventListener('click', async () => {
+    if (!pendingShareFile) return;
 
-</body>
-</html>
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [pendingShareFile] })) {
+        await navigator.share({
+          files: [pendingShareFile],
+          title: '訂單確認單'
+        });
+        // 分享成功後可以選擇自動關閉彈窗
+        document.getElementById('share-modal').style.display = 'none';
+      } else {
+        throw new Error('不支援原生分享');
+      }
+    } catch (err) {
+      // 處理使用者手動取消或瀏覽器不支援
+      if (err.name !== 'AbortError') {
+        const url = URL.createObjectURL(pendingShareFile);
+        if (/Android/i.test(navigator.userAgent || '')) {
+          window.open(url, '_blank');
+          alert('無法喚起分享選單。已開啟新分頁，請長按圖片「儲存」後手動分享。');
+        } else {
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'order.png';
+          document.body.appendChild(a); 
+          a.click(); 
+          document.body.removeChild(a);
+          alert('您的瀏覽器不支援直接分享，已為您下載圖片。
