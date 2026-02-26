@@ -105,8 +105,7 @@
 </head>
 <body>
   <h2>白花油活動計算機</h2>
-<!-- 基本輸入 -->
-  <div class="row">
+<div class="row">
     <label>客戶名稱：<input type="text" id="customer" placeholder="例如：大里 昱昭"></label>
     <label>備註：<input type="text" id="note" placeholder="例如：急！／星期四到貨"></label>
     <label>之前已出金額：<input type="number" id="previous-total" value="0" min="0" inputmode="numeric" pattern="[0-9]*"></label>
@@ -151,7 +150,6 @@
     </tbody>
   </table>
 
-  <!-- 訂單卡片（輸出圖檔用） -->
   <div id="order-card" class="order-card" style="margin-top:14px;">
     <div class="order-head">
       <div class="order-title">訂單確認單</div>
@@ -174,7 +172,6 @@
     <div class="order-gift" id="sum-gift">滿額贈品：無</div>
   </div>
 
-  <!-- 手機底部固定資訊與操作 -->
   <div class="sticky-bar">
     <div class="sticky-row">總計金額（含已出）：<span id="grand-total">0</span> 元</div>
     <div class="sticky-row"><span class="gift-em" id="gift-info">滿額贈品：無</span></div>
@@ -222,7 +219,7 @@
   const PADDING = 16;
   const isDesktop = () => window.matchMedia('(min-width: 769px)').matches;
 
-  const JSON_URLS = ['productImages.json', 'productImages_local.json']; // 支援兩種檔名
+  const JSON_URLS = ['productImages.json', 'productImages_local.json']; 
   let imageMap = {};
 
   function normalizeName(s){
@@ -282,7 +279,6 @@
   }
   sheet.addEventListener('click', ()=>{ closeSheet(); });
 
-  // 初始化資料列的「有圖」標示
   function markRowsHasImage(){
     document.querySelectorAll('#product-table tr').forEach(tr => {
       const nameCell = tr.querySelector('.name-cell');
@@ -299,7 +295,6 @@
   }
 
   function bindPreviewEvents(){
-    // 桌機：滑過整列顯示預覽
     document.addEventListener('mouseover', (e) => {
       if (!isDesktop()) return;
       const nameCell = e.target.closest('#product-table td.name-cell');
@@ -319,7 +314,6 @@
       if (e.target.closest('#product-table td.name-cell')) hidePreview();
     });
 
-    // 手機：點擊縮圖圖示或名稱打開 bottom sheet
     document.addEventListener('click', (e) => {
       if (isDesktop()) return;
       const dot = e.target.closest('.thumb-dot');
@@ -336,7 +330,6 @@
   }
 
   // === 訂單/金額計算 ===
-  // 贈品規則：每 21,000 計 4 支；餘數再以每 7,000 計 1 支
   function calcGifts(total){
     const bigBlocks=Math.floor(total/21000);
     const remainder=total%21000;
@@ -380,7 +373,6 @@
   }
   function updateTotals(){
     const data = collectOrderData();
-    // 更新清單
     orderItems.innerHTML = '';
     if (data.items.length === 0) {
       orderItems.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#666;">尚未選購任何品項</td></tr>';
@@ -391,14 +383,12 @@
         orderItems.appendChild(tr);
       });
     }
-    // 更新表格小計
     document.querySelectorAll('#product-table tr').forEach((tr,i)=>{
       const input = tr.querySelector('input');
       const price = parseFloat(input.dataset.price);
       const qty = parseInt(input.value || '0',10) || 0;
       tr.querySelector('.subtotal').textContent = price * qty;
     });
-    // 更新金額/贈品/底部顯示
     sumGrand.textContent = data.grand + ' 元';
     sumPrev.textContent = data.prev + ' 元';
     sumFinal.textContent = data.final + ' 元';
@@ -410,10 +400,9 @@
     metaDate.textContent = currentDateStr();
     metaCustomer.textContent = custInput.value || '—';
     metaNote.textContent = noteInput.value || '—';
-    // 更新 LINE 文字分享連結
     shareLineText.href = 'https://line.me/R/msg/text/?' + encodeURIComponent(buildTextMessage(data));
   }
-  // 自動清零：focus 清 0、blur 空白補 0
+  
   function attachAutoClearZero(input){
     input.addEventListener('focus', ()=>{ if(input.value === '0') input.value = ''; });
     input.addEventListener('blur', ()=>{ if(input.value === '') input.value = '0'; });
@@ -424,35 +413,69 @@
   custInput.addEventListener('input', updateTotals);
   noteInput.addEventListener('input', updateTotals);
 
-  async function renderCardToBlob(){
-    await new Promise(r=>setTimeout(r,40));
-    const canvas = await html2canvas(document.getElementById('order-card'), {scale:2, backgroundColor:'#fff', useCORS:true});
-    return await new Promise(res=>canvas.toBlob(res, 'image/png', 0.95));
-  }
+  // === 核心分享功能改寫 ===
+  async function shareAll() {
+    updateTotals(); // 先同步更新 UI
 
-  async function shareAll(){
-    updateTotals();
-    const blob = await renderCardToBlob();
-    const file = new File([blob], 'order.png', {type:'image/png'});
-    const data = collectOrderData();
-    const shareData = { title:'訂單確認單', text: buildTextMessage(data), files:[file] };
-    // 1) 先嘗試 Web Share with files（Android Chrome 89+ & HTTPS）
-    if ((location.protocol === 'https:' || location.hostname === 'localhost') && navigator.canShare && navigator.canShare({ files:[file] })) {
-      try { await navigator.share(shareData); return; }
-      catch (e) { /* 使用者取消或失敗 */ }
-    }
-    // 2) 備援 A：下載到「下載」資料夾
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'order.png';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    // 3) 備援 B（Android 友善）：開新分頁顯示圖片，長按「儲存圖片」可進相簿
-    if (/Android/i.test(navigator.userAgent || '')) {
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      alert('已為你下載圖檔，若未出現在相簿，請切到新分頁長按圖片「儲存圖片」，再到 LINE 以圖片分享。');
-    } else {
-      alert('已為你下載圖檔，可到 LINE/Email 手動附加圖片分享。');
+    const btn = document.getElementById('share-all-btn');
+    const originalText = btn.textContent;
+    btn.textContent = '產生中...';
+    btn.disabled = true;
+
+    let blob = null;
+
+    try {
+      // 1. 立即呼叫 html2canvas (移除原本的 setTimeout，避免流失使用者的點擊授權)
+      const canvas = await html2canvas(document.getElementById('order-card'), {
+        scale: 2,
+        backgroundColor: '#fff',
+        useCORS: true
+      });
+      
+      blob = await new Promise(res => canvas.toBlob(res, 'image/png', 0.95));
+      const file = new File([blob], 'order.png', { type: 'image/png' });
+
+      // 2. 判斷是否支援原生的 Web Share API 檔案分享
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          // 呼叫原生分享
+          // 注意：如果同時放 text 與 files，iOS LINE 有時會誤判只傳送文字，因此僅保留 title 和 files
+          await navigator.share({
+            files: [file],
+            title: '訂單確認單'
+          });
+          return; // 分享成功，結束執行
+        } catch (shareError) {
+          // 如果是使用者自己滑掉/取消分享 (AbortError)，不要做任何報錯，直接結束
+          if (shareError.name === 'AbortError') return;
+          throw shareError; // 其他預期外錯誤，拋出給下方 Catch 執行備用方案
+        }
+      } else {
+        throw new Error('此裝置/瀏覽器不支援原生分享');
+      }
+
+    } catch (err) {
+      console.error('分享失敗，進入備用下載：', err);
+      // 3. 備用方案：自動下載或開新分頁（適用於不支援的瀏覽器）
+      if (blob) {
+        if (/Android/i.test(navigator.userAgent || '')) {
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+          alert('無法喚起分享選單。已開啟新分頁，請長按圖片「儲存」後手動分享。');
+        } else {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'order.png';
+          document.body.appendChild(a); 
+          a.click(); 
+          document.body.removeChild(a);
+          alert('無法喚起分享選單。已為您下載圖檔，可手動至相簿/檔案中分享。');
+        }
+      }
+    } finally {
+      // 4. 恢復按鈕狀態
+      btn.textContent = originalText;
+      btn.disabled = false;
     }
   }
 
@@ -461,8 +484,10 @@
     prevInput.value='0'; custInput.value=''; noteInput.value='';
     updateTotals();
   });
+  
   shareAllBtn.addEventListener('click', shareAll);
-  // 啟動：載入圖片對照表 → 標示有圖列 → 綁定事件
+
+  // 啟動
   (async function init(){
     await loadMap();
     markRowsHasImage();
