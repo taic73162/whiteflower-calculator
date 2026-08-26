@@ -125,12 +125,6 @@
         <td class="subtotal">0</td>
       </tr>
       <tr>
-        <td class="name-cell">白花油 #3</td>
-        <td>89</td>
-        <td><input type="number" min="0" value="0" inputmode="numeric" pattern="[0-9]*" data-price="89"></td>
-        <td class="subtotal">0</td>
-      </tr>
-      <tr>
         <td class="name-cell">白花油 XL</td>
         <td>432</td>
         <td><input type="number" min="0" value="0" inputmode="numeric" pattern="[0-9]*" data-price="432"></td>
@@ -312,9 +306,9 @@
   }
 
   function calcGifts(total){
-    const bigBlocks=Math.floor(total/21000);
-    const remainder=total%21000;
-    const smallBlocks=Math.floor(remainder/7000);
+    const bigBlocks=Math.floor(total/18000);
+    const remainder=total%18000;
+    const smallBlocks=Math.floor(remainder/6000);
     return bigBlocks*4+smallBlocks;
   }
   function currentDateStr(){
@@ -377,7 +371,7 @@
     const giftText = data.gifts>0 ? `滿額贈品：白花油 #1 × ${data.gifts} 支` : '滿額贈品：無';
     giftInfoEl.textContent = giftText;
     sumGift.textContent = giftText;
-    nextTierEl.textContent = `距離下一支還差：${Math.max(0,(Math.floor(data.final/7000)+1)*7000 - data.final)} 元`;
+    nextTierEl.textContent = `距離下一支還差：${Math.max(0,(Math.floor(data.final/6000)+1)*6000 - data.final)} 元`;
     metaDate.textContent = currentDateStr();
     metaCustomer.textContent = custInput.value || '—';
     metaNote.textContent = noteInput.value || '—';
